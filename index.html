@@ -97,11 +97,15 @@ const BOTS = [
    desc:"Brasileirão, transferências e tabelas"},
 ];
 
+const tg = window.Telegram && window.Telegram.WebApp;
+const inTelegram = !!(tg && tg.initData !== undefined && tg.platform && tg.platform !== "unknown");
+
 const grid = document.getElementById("grid");
 for (const b of BOTS) {
+  const url = "https://t.me/" + b.user;
   const a = document.createElement("a");
   a.className = "bot";
-  a.href = "https://t.me/" + b.user;
+  a.href = url;                      // 普通浏览器里就靠它跳
   a.rel = "noopener";
   a.innerHTML = `
     <div class="ico">${b.ico}</div>
@@ -110,12 +114,26 @@ for (const b of BOTS) {
       <div class="desc">${b.desc}</div>
     </div>
     <div class="go">›</div>`;
+
+  // ⚠️ Mini App 里 **不能** 靠 <a href> 跳转 —— Telegram 会拦掉页面的直接导航
+  //    （防止 WebApp 把用户带去别处）。必须走 openTelegramLink()。
+  //    普通浏览器打开时它不存在，就退回默认的 <a href> 行为。
+  a.addEventListener("click", (ev) => {
+    if (!inTelegram) return;                 // 浏览器里照常跳
+    ev.preventDefault();
+    try {
+      if (tg.openTelegramLink) tg.openTelegramLink(url);
+      else tg.openLink && tg.openLink(url);
+    } catch (e) {
+      location.href = url;                   // 兜底
+    }
+  });
+
   grid.appendChild(a);
 }
 
 // 在 Telegram 里打开时用原生主题色 + 撑满视口
 try {
-  const tg = window.Telegram?.WebApp;
   if (tg) {
     tg.ready(); tg.expand();
     if (tg.setHeaderColor) tg.setHeaderColor("#0f1115");
