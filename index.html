@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0f1115">
+<script>document.documentElement.classList.add("js")</script>
 <title>Nossos Bots 🇧🇷</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
@@ -95,9 +96,61 @@
     background:rgba(62,166,255,.07); border:1px solid rgba(62,166,255,.18);
     border-radius:12px; font-size:12.5px; color:#a8c6e8; text-align:center;
   }
+  /* ══ 交互质感：借自 huangbai-scrolling 的滚动模式（无视频版）══════
+     ① 顶部滚动进度条   ② 卡片入视口淡入   ③ 分类吸顶高亮
+     ④ 背景浮尘         ⑤ prefers-reduced-motion 全量降级        */
+
+  /* ① 进度条 —— 对应它的 .sw-scrollbar */
+  .progress{
+    position:fixed; top:0; left:0; right:0; height:3px; z-index:60;
+    background:rgba(62,166,255,.12); pointer-events:none;
+  }
+  .progress span{
+    display:block; height:100%; width:100%; transform:scaleX(0);
+    transform-origin:0 50%; will-change:transform;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+  }
+
+  /* ② 卡片入场：初始透明，进入视口后播一次动画 */
+  /* ⚠️ 只在 .js 下才隐藏 —— 万一脚本出错/被拦，卡片必须照常可见 */
+  .js .card{opacity:0}
+  .js .card.in{opacity:1; animation:cardIn .5s cubic-bezier(.2,.8,.3,1)}
+  @keyframes cardIn{
+    from{opacity:0; transform:translateY(14px)}
+    to  {opacity:1; transform:none}
+  }
+
+  /* ③ 分类标题吸顶 */
+  .cat{
+    position:sticky; top:0; z-index:20;
+    background:linear-gradient(180deg,var(--bg) 70%,transparent);
+    padding-top:10px; padding-bottom:6px;
+  }
+  .cat.stuck{color:var(--accent)}
+
+  /* ④ 背景浮尘 —— 对应它的 .sw-particles / sw-drift */
+  .dust{position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden}
+  .dust i{position:absolute; border-radius:50%; opacity:0; animation:drift linear infinite}
+  @keyframes drift{
+    0%  {opacity:0;   transform:translate(0,8vh) scale(.7)}
+    15% {opacity:.45}
+    85% {opacity:.3}
+    100%{opacity:0;   transform:translate(3vw,-20vh) scale(1.15)}
+  }
+  .hero, .wrap, footer{position:relative; z-index:1}
+
+  /* ⑤ 减少动态效果：全部降级为静态 */
+  @media (prefers-reduced-motion: reduce){
+    .card{opacity:1 !important; animation:none !important}
+    .dust{display:none}
+    .progress span{transition:none}
+  }
 </style>
 </head>
 <body>
+
+<div class="progress"><span id="pbar"></span></div>
+<div class="dust" id="dust" aria-hidden="true"></div>
 
 <div class="hero">
   <h1>🇧🇷 Nossos Bots</h1>
@@ -209,6 +262,68 @@ for (const c of CATS) {
     });
 
     app.appendChild(card);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 交互质感：借自 huangbai-scrolling 的滚动模式（无视频，包体 +1.6KB）
+//   ① 顶部进度条      ② 卡片入视口淡入
+//   ③ 分类吸顶高亮    ④ 背景浮尘
+//   ⑤ rAF 节流滚动 —— 它引擎里的 ticking 模式，避免每次 scroll 都算布局
+//   ⑥ prefers-reduced-motion → 全部降级为静态
+// ═══════════════════════════════════════════════════════════════════
+const REDUCE = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const pbar = document.getElementById('pbar');
+const cards = document.querySelectorAll('.card');
+
+// ⑤ rAF 节流：scroll 只标脏，计算放到下一帧
+let ticking = false;
+function readScroll() {
+  const d = document.documentElement;
+  const max = d.scrollHeight - d.clientHeight;
+  const p = max > 0 ? d.scrollTop / max : 0;
+  if (pbar) pbar.style.transform = `scaleX(${p.toFixed(4)})`;
+  ticking = false;
+}
+window.addEventListener('scroll', () => {
+  if (!ticking) { ticking = true; requestAnimationFrame(readScroll); }
+}, { passive: true });
+readScroll();
+
+// ② 卡片进入视口时播一次入场动画（只播一次，不会来回闪）
+if (!REDUCE && 'IntersectionObserver' in window) {
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+    }
+  }, { rootMargin: '0px 0px -6% 0px' });
+  cards.forEach(c => io.observe(c));
+} else {
+  cards.forEach(c => c.classList.add('in'));
+}
+
+// ③ 分类标题吸顶时变色
+if ('IntersectionObserver' in window) {
+  const catIo = new IntersectionObserver((entries) => {
+    for (const e of entries) e.target.classList.toggle('stuck', !e.isIntersecting);
+  }, { rootMargin: '-4px 0px 0px 0px' });
+  document.querySelectorAll('.cat').forEach(c => catIo.observe(c));
+}
+
+// ④ 背景浮尘：9 个，纯 CSS 动画，JS 只负责摆位置
+if (!REDUCE) {
+  const dust = document.getElementById('dust');
+  const tints = ['#3ea6ff', '#ff4d8d', '#ffd60a'];
+  for (let i = 0; i < 9; i++) {
+    const s = document.createElement('i');
+    const size = 2 + Math.random() * 4;
+    s.style.cssText =
+      `width:${size}px;height:${size}px;` +
+      `left:${4 + Math.random() * 92}%;top:${68 + Math.random() * 32}%;` +
+      `background:${tints[i % 3]};` +
+      `animation-duration:${14 + Math.random() * 12}s;` +
+      `animation-delay:${Math.random() * 10}s;`;
+    dust.appendChild(s);
   }
 }
 
