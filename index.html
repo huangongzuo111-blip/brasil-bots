@@ -128,14 +128,21 @@
   }
   .cat.stuck{color:var(--accent)}
 
-  /* ④ 背景浮尘 —— 对应它的 .sw-particles / sw-drift */
-  .dust{position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden}
-  .dust i{position:absolute; border-radius:50%; opacity:0; animation:drift linear infinite}
+  /* ④ 背景浮尘 —— 对应它的 .sw-particles / sw-drift
+     ⚠️ 三个坑（都实际踩过）：
+        ① z-index 必须高于内容层，否则被实色卡片完全盖住
+        ② 峰值不透明度必须 ≥.6，否则在 #0b0d11 上等于看不见
+        ③ animation-delay 必须短，否则初访前 10 秒空白 */
+  .dust{position:fixed; inset:0; z-index:5; pointer-events:none; overflow:hidden}
+  .dust i{
+    position:absolute; border-radius:50%; opacity:0;
+    animation:drift linear infinite;
+  }
   @keyframes drift{
-    0%  {opacity:0;   transform:translate(0,8vh) scale(.7)}
-    15% {opacity:.45}
-    85% {opacity:.3}
-    100%{opacity:0;   transform:translate(3vw,-20vh) scale(1.15)}
+    0%  {opacity:0;   transform:translate(0,0) scale(.5)}
+    8%  {opacity:.75}
+    70% {opacity:.5}
+    100%{opacity:0;   transform:translate(5vw,-58vh) scale(1.2)}
   }
   .hero, .wrap, footer{position:relative; z-index:1}
 
@@ -314,15 +321,18 @@ if ('IntersectionObserver' in window) {
 if (!REDUCE) {
   const dust = document.getElementById('dust');
   const tints = ['#3ea6ff', '#ff4d8d', '#ffd60a'];
-  for (let i = 0; i < 9; i++) {
+  for (let i = 0; i < 12; i++) {
     const s = document.createElement('i');
-    const size = 2 + Math.random() * 4;
+    const size = 3 + Math.random() * 5;                 // 3–8px（原来 2–6 太小）
+    const tint = tints[i % 3];
     s.style.cssText =
-      `width:${size}px;height:${size}px;` +
-      `left:${4 + Math.random() * 92}%;top:${68 + Math.random() * 32}%;` +
-      `background:${tints[i % 3]};` +
-      `animation-duration:${14 + Math.random() * 12}s;` +
-      `animation-delay:${Math.random() * 10}s;`;
+      `width:${size.toFixed(1)}px;height:${size.toFixed(1)}px;` +
+      `left:${4 + Math.random() * 92}%;` +
+      `top:${(86 + Math.random() * 22).toFixed(1)}%;` +   // 从屏幕下方起
+      `background:${tint};opacity:.32;` +                 // 兜底：动画不跑时也看得见
+      `box-shadow:0 0 ${size * 2}px ${tint};` +          // glow：小尺寸在深底上才看得见
+      `animation-duration:${16 + Math.random() * 12}s;` +
+      `animation-delay:${(Math.random() * 4).toFixed(2)}s;`;  // 4s 内全部起步（原来 10s）
     dust.appendChild(s);
   }
 }
