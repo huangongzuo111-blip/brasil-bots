@@ -102,22 +102,60 @@
 
   /* ① 进度条 —— 对应它的 .sw-scrollbar */
   .progress{
-    position:fixed; top:0; left:0; right:0; height:3px; z-index:60;
-    background:rgba(62,166,255,.12); pointer-events:none;
+    position:fixed; top:0; left:0; right:0; height:4px; z-index:60;
+    background:rgba(62,166,255,.20); pointer-events:none;
+    box-shadow:0 0 14px rgba(62,166,255,.45);
   }
   .progress span{
     display:block; height:100%; width:100%; transform:scaleX(0);
     transform-origin:0 50%; will-change:transform;
     background:linear-gradient(90deg,var(--accent),var(--accent2));
+    box-shadow:0 0 16px rgba(255,77,141,.75);
   }
 
-  /* ② 卡片入场：初始透明，进入视口后播一次动画 */
-  /* ⚠️ 只在 .js 下才隐藏 —— 万一脚本出错/被拦，卡片必须照常可见 */
+  /* ② 卡片入场：按分类四种动作，不是统一淡入
+     ⚠️ 只在 .js 下才隐藏 —— 万一脚本出错/被拦，卡片必须照常可见 */
   .js .card{opacity:0}
-  .js .card.in{opacity:1; animation:cardIn .5s cubic-bezier(.2,.8,.3,1)}
-  @keyframes cardIn{
-    from{opacity:0; transform:translateY(14px)}
-    to  {opacity:1; transform:none}
+  .js .card.in{
+    opacity:1;
+    animation-duration:.66s;
+    animation-timing-function:cubic-bezier(.19,.9,.28,1);
+    /* backwards：延迟期间保持 from 状态，动画结束不占用 transform，
+       这样 .card:active 的缩放仍然生效 */
+    animation-fill-mode:backwards;
+    animation-delay:calc(var(--i, 0) * 75ms);
+  }
+
+  /* 💔 Relacionamento —— 名片递过来：侧身翻转 + 从左侧送来 */
+  .js .card.cat-amor.in{animation-name:inName}
+  @keyframes inName{
+    from{opacity:0; transform:perspective(900px) rotateY(-76deg) translateX(-56px)}
+    65% {opacity:1}
+    to  {opacity:1; transform:perspective(900px) rotateY(0) translateX(0)}
+  }
+
+  /* 📰 Notícias —— 报纸从远处飘来：缩小 + 微倾 + 由上落下 */
+  .js .card.cat-news.in{animation-name:inPaper}
+  @keyframes inPaper{
+    from{opacity:0; transform:translateY(-70px) scale(.58) rotate(-7deg)}
+    55% {opacity:1; transform:translateY(6px) scale(1.02) rotate(1.5deg)}
+    to  {opacity:1; transform:translateY(0) scale(1) rotate(0)}
+  }
+
+  /* 💼 Trabalho e dinheiro —— 文件递上来：从右侧滑入 */
+  .js .card.cat-work.in{animation-name:inWork}
+  @keyframes inWork{
+    from{opacity:0; transform:translateX(88px) scale(.96)}
+    70% {opacity:1}
+    to  {opacity:1; transform:translateX(0) scale(1)}
+  }
+
+  /* ⚽ Esportes e jogos —— 球滚进来：带旋转从左侧滚入 */
+  .js .card.cat-play.in{animation-name:inBall}
+  @keyframes inBall{
+    from{opacity:0; transform:translateX(-115%) rotate(-190deg) scale(.9)}
+    60% {opacity:1; transform:translateX(0) rotate(6deg) scale(1.015)}
+    to  {opacity:1; transform:translateX(0) rotate(0) scale(1)}
   }
 
   /* ③ 分类标题吸顶 */
@@ -148,7 +186,7 @@
 
   /* ⑤ 减少动态效果：全部降级为静态 */
   @media (prefers-reduced-motion: reduce){
-    .card{opacity:1 !important; animation:none !important}
+    .js .card, .js .card.in{opacity:1 !important; animation:none !important}
     .dust{display:none}
     .progress span{transition:none}
   }
@@ -229,9 +267,12 @@ for (const c of CATS) {
   if (!items.length) continue;
   app.appendChild(el("div", "cat", c.label));
 
+  let idx = 0;
   for (const b of items) {
     const url = "https://t.me/" + b.user;
-    const card = el("a", "card");
+    // 分类类名决定入场动画；--i 让同组卡片错开（不是整屏一起蹦出来）
+    const card = el("a", "card cat-" + c.key);
+    card.style.setProperty("--i", idx++);
     card.href = url;
     card.rel = "noopener";
 
